@@ -1,0 +1,470 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package freemind.main;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Collections;
+import freemind.controller.TreeNode;
+import freemind.modes.MindMapNode;
+import freemind.modes.attributes.Attribute;
+import java.sql.Date;
+import java.util.ListIterator;
+import java.util.Stack;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ *
+ * @author woo
+ */
+public class DataBaseReader {
+
+    public static void addNewNodes(List newNodes) {
+        printNodes("New Nodes", newNodes);
+        int version = 1;
+        Connection c = null;
+        try {
+            c = getConnection();
+            for (int i = 0; i < newNodes.size(); i++) {
+                MindMapNode mmn = (MindMapNode) newNodes.get(i);
+                String textStr = mmn.getText();
+                int theId = Integer.parseInt(mmn.getAttribute("id"));
+                int parentId = Integer.parseInt(mmn.getAttribute("parentId"));
+
+                String sql = "insert into links (id,parentId,label,sequence,version)"
+                        + " values (" + theId + "," + parentId + ",\"" + textStr + "\",-1," + version + ")";
+                System.out.println("sql: '" + sql + "'");
+                PreparedStatement stmt = c.prepareStatement(sql);
+
+                //
+                stmt.executeUpdate();
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            try {
+                c.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(DataBaseReader.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    public static void markAsDeleted(List removedNodes) {
+        java.sql.Date modDate = new java.sql.Date(new java.util.Date().getTime());
+        printNodes("Deleted Nodes", removedNodes);
+        DataBaseReader dbr = new DataBaseReader();
+        for (int i = 0; i < removedNodes.size(); i++) {
+            MindMapNode mmn = (MindMapNode) removedNodes.get(i);
+            String strId = (String) mmn.getAttribute("id");
+            int theId = Integer.parseInt(strId);
+            TreeNode theNode = dbr.getNode(theId);
+            int version = Integer.parseInt(theNode.getAttribute("version"));
+            version++;
+            Connection c = null;
+            try {
+                c = getConnection();
+                String sql = "update links set modified = ?, version = ? where id = ?";
+                PreparedStatement stmt = c.prepareStatement(sql);
+                stmt.setDate(1, modDate);
+                stmt.setInt(2, version);
+                stmt.setInt(3, theId);
+                //
+                stmt.executeUpdate();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            } finally {
+                try {
+                    c.close();
+                } catch (SQLException ex) {
+                    Logger.getLogger(DataBaseReader.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public static void updateEditedNodes(List nodes) {
+        printNodes("Edited Nodes", nodes);
+        java.sql.Date modDate = new java.sql.Date(new java.util.Date().getTime());
+        DataBaseReader dbr = new DataBaseReader();
+        for (int i = 0; i < nodes.size(); i++) {
+            MindMapNode mmn = (MindMapNode) nodes.get(i);
+            String strId = (String) mmn.getAttribute("id");
+            int parentId = Integer.parseInt(mmn.getAttribute("parentId"));
+            int theId = Integer.parseInt(strId);
+            TreeNode theNode = dbr.getNode(theId);
+            String versionStr = theNode.getAttribute("version");
+            int version = 1;
+            if( versionStr != null )
+                version = Integer.parseInt(versionStr);
+            version++;
+            Connection c = null;
+            try {
+                c = getConnection();
+                String sql = "update links set modified = ? where id = ?";
+                PreparedStatement stmt = c.prepareStatement(sql);
+                stmt.setDate(1, modDate);
+                stmt.setInt(2, theId);
+                //
+                stmt.executeUpdate();
+                //
+                String textStr = mmn.getText();
+                int loc = textStr.lastIndexOf(":");
+                if (loc != -1) {
+                    textStr = textStr.substring(0, loc); // trim off previous value
+                }
+                sql = "insert into links (id,parentId,label,sequence,version)"
+                        + " values (" + theId + "," + parentId + ",\"" + textStr + "\",-1," + version + ")";
+                System.out.println("sql: '" + sql + "'");
+                stmt = c.prepareStatement(sql);
+
+                //
+                stmt.executeUpdate();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            } finally {
+                try {
+                    c.close();
+                } catch (SQLException ex) {
+                    Logger.getLogger(DataBaseReader.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public static void printNodes(String title, List nodes) {
+        System.out.println(title);
+        for (int i = 0; i < nodes.size(); i++) {
+            MindMapNode mmn = (MindMapNode) nodes.get(i);
+            String label = mmn.getText();
+            System.out.println("\t" + i + ") " + label);
+            List keys = mmn.getAttributeKeyList();
+            for (int j = 0; j < keys.size(); j++) {
+                String key = (String) keys.get(j);
+                System.out.println("\t\t" + j + ") " + key + "->" + mmn.getAttribute(key));
+            }
+        }
+    }
+    Map values = null;
+    private int lastIndentLevel = 0;
+    public static int nextId = -1;
+
+    public Map getTreeNodes(Connection c) throws SQLException, Exception {
+        Map nodes = new TreeMap();
+        // test
+        //return getSampleNodes();
+
+        String sqlStatement = "SELECT id,parentId,label, modified FROM links order by id";
+        PreparedStatement pps = c.prepareStatement(sqlStatement);
+        ResultSet rsl = pps.executeQuery();
+        // Storing away the nodes by parentId for lookup later
+        TreeNode root = null;
+        while (rsl.next()) {
+            int id = rsl.getInt(1);
+            if (id >= nextId) {
+                nextId = id + 1;
+            }
+            System.out.println("id = " + id);
+            int parentId = rsl.getInt(2);
+            String label = rsl.getString(3);
+            Date modified = rsl.getDate(4);
+            if (modified == null) {
+                TreeNode tn = new TreeNode(id, parentId, label);
+                if (parentId == -1) {
+                    root = tn;
+                }
+                nodes.put(id, tn);
+            }
+        }
+        return nodes;
+    }
+
+    public void printTree() {
+        System.out.println("\nParent Map\n");
+        Map results = getTreeData();
+        Iterator jt = results.keySet().iterator();
+        while (jt.hasNext()) {
+            int id = ((Integer) jt.next()).intValue();
+            System.out.println("Parent(s) of " + getNode(id) + " are ");
+            List theList = (List) results.get(id);
+            for (int i = 0; i < theList.size(); i++) {
+                System.out.println("\t" + i + ") " + theList.get(i));
+            }
+        }
+    }
+
+    public void renumberChildren(MindMapNode node) {
+        // find the child whose parent is node
+        ListIterator it = node.childrenFolded();
+        String nodeId = "" + DataBaseReader.nextId++;
+        node.setAttribute(0, new Attribute("id", nodeId));
+        while (it.hasNext()) {
+            MindMapNode childNode = (MindMapNode) it.next();
+            if (childNode.hasChildren()) {
+                renumberChildren(childNode);
+            }
+            String childId = "" + DataBaseReader.nextId++;
+            childNode.setAttribute(0, new Attribute("id", childId));
+            childNode.setAttribute(0, new Attribute("parentId", nodeId));
+        }
+    }
+
+    public static Connection getConnection() throws Exception {
+        // load the Oracle JDBC Driver
+        Class.forName("com.mysql.jdbc.Driver");
+        // define database connection parameters
+        return DriverManager.getConnection("jdbc:mysql://localhost:3306/mm_test", "root",
+                "root");
+    }
+
+    public DataBaseReader() {
+        super();
+    }
+
+    public Map getNodes() {
+        if (values == null) {
+            Connection c = null;
+            try {
+                c = getConnection();
+                values = getTreeNodes(c);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            } finally {
+                try {
+                    c.close();
+                } catch (SQLException ex) {
+                    Logger.getLogger(DataBaseReader.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        return values;
+    }
+
+    public static TreeNode getNode(int theId, int theVersion) {
+        TreeNode node = null;
+        try {
+            Connection c = getConnection();
+            String sqlStatement = "SELECT id,parentId, label FROM links where(id=" + theId + " version=" + theVersion + " order by id";
+            PreparedStatement pps = c.prepareStatement(sqlStatement);
+            ResultSet rsl = pps.executeQuery();
+            // Storing away the nodes by parentId for lookup later
+
+            while (rsl.next()) {
+                int id = rsl.getInt(1);
+                int parentId = rsl.getByte(2);
+                String label = rsl.getString(3);
+                node = new TreeNode(id, parentId, label);
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return node;
+
+    }
+
+    public TreeNode getNode(int id) {
+        return (TreeNode) getNodes().get(id);
+    }
+
+    /**
+     * values is a Map of the TreeNodes keyed by id
+     * results is a Map of the branches from leaf to root.
+     * @return
+     */
+    public String getXML() {
+        StringBuffer buffer = new StringBuffer();
+        StringBuffer closedNodeString = new StringBuffer();
+        Map results = getTreeData(); // This is a map of the branches keyed by id.
+        Stack closedNodeStack = new Stack();
+        printTreeData(results); // prints nodes from database call
+        printValues();
+        Iterator jt = results.keySet().iterator();
+        List lastBranch = new ArrayList();
+        int j = 0;
+        buffer.append("<map version=\"0.9.0\">");
+        while (jt.hasNext()) {
+
+            int id = ((Integer) jt.next()).intValue();
+            List aList = new ArrayList();
+            aList.add(getNode(id).getXML());
+            List theList = (List) results.get(id);
+            for (int i = 0; i < theList.size(); i++) {
+                TreeNode tn = (TreeNode) theList.get(i);
+                if (tn != null) {
+                    aList.add(tn.getXML());
+                }
+            }
+
+            // At this point, we have a branch assembled from leaf to root
+            // output the branch in reverse order
+            if (aList.size() < lastIndentLevel) {
+                closedNodeStack.push("</node>");
+                for (int i = aList.size(); i <= lastIndentLevel; i++) {
+                    if (!closedNodeStack.empty()) {
+                        buffer.append(closedNodeStack.pop());
+                    }
+                }
+            }
+            if (aList.size() > lastIndentLevel) {
+                closedNodeStack.push("</node>");
+            }
+            if (aList.size() == lastIndentLevel) {
+                if (!closedNodeStack.empty()) {
+                    buffer.append(closedNodeStack.pop());
+                }
+                closedNodeStack.push("</node>");
+            }
+            buffer.append("\n");
+            int kount = 0;
+            for (int indentLevel = 1; indentLevel <= aList.size() - 1; indentLevel++) {
+                buffer.append("\t");
+                kount++;
+            }
+            Collections.reverse(aList);
+            for (int i = kount; i < aList.size(); i++) {
+                buffer.append(aList.get(i));
+            }
+            lastIndentLevel = aList.size();
+            lastBranch = aList;
+            j++;
+        }
+        while (!closedNodeStack.empty()) {
+            buffer.append(closedNodeStack.pop());
+        }
+        buffer.append("\n</map>");
+        return buffer.toString();
+    }
+
+    public Map getTreeData() {
+        System.out.println("Hello World!  I'm getting data from the database!");
+        Map parents = new TreeMap();
+        Connection c = null;
+        try {
+            c = getConnection();
+            values = getTreeNodes(c);
+            // values = getSampleNodes();
+            List out = new ArrayList();
+            // Now have to construct the branches of the tree
+            System.out.println("\n\n");
+            // Starting with root, find children, etc.
+
+            Iterator it = values.keySet().iterator();
+            while (it.hasNext()) {
+                int key = ((Integer) it.next()).intValue();
+                TreeNode tn = (TreeNode) values.get(key);
+                int id = tn.getId();
+                int parentId = tn.getParentId();
+                TreeNode parentNode = (TreeNode) values.get(parentId);
+                List theParents = (List) parents.get(id);
+                if (theParents == null) {
+                    theParents = new ArrayList();
+                    parents.put(id, theParents);
+                }
+                theParents.add(parentNode);
+            }
+            // Now loop through parents creating branches
+            it = parents.keySet().iterator();
+            while (it.hasNext()) {
+                int key = ((Integer) it.next()).intValue();
+                List theParents = (List) parents.get(key);
+                if (theParents != null) {
+                    TreeNode tn = (TreeNode) theParents.get(0);
+                    if (tn != null) {
+                        int parentId = tn.getParentId();
+                        while (parentId != -1) {
+                            List parentList = (List) parents.get(tn.getId());
+                            Iterator jt = parentList.iterator();
+                            while (jt.hasNext()) {
+                                tn = (TreeNode) jt.next();
+                                if (!theParents.contains(tn)) {
+                                    theParents.add(tn);
+                                }
+                                parentId = tn.getParentId();
+                            }
+                        }
+                    }
+                }
+            }
+            // Look at the lists I have now
+            Iterator jt = values.keySet().iterator();
+            System.out.println("\nValue Map\n");
+            while (jt.hasNext()) {
+                int id = ((Integer) jt.next()).intValue();
+                System.out.println(values.get(id));
+            }
+            c.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        if (c != null) {
+            System.out.println("Got a connection!");
+        }
+        return parents;
+    }
+
+    public static void main(String[] args) {
+        DataBaseReader dbr = new DataBaseReader();
+        dbr.printTree();
+        System.out.println("XML output is: " + dbr.getXML());
+    }
+
+    private Map getSampleNodes() {
+        Map nodes = new HashMap();
+
+        nodes.put(0, new TreeNode(0, -1, "ANESTHESIA  CARE "));
+        nodes.put(1, new TreeNode(1, 0, "Anesthetic delivery "));
+        nodes.put(2, new TreeNode(2, 1, "Timing "));
+        nodes.put(3, new TreeNode(3, 2, "Anesthesia start "));
+        nodes.put(4, new TreeNode(4, 2, "Patient In room "));
+        nodes.put(5, new TreeNode(5, 2, "Anesthesia ready to allow surgeons to proceed "));
+        nodes.put(6, new TreeNode(6, 5, "Antibiotics given "));
+        nodes.put(7, new TreeNode(7, 2, "Time out performed per facility protocol "));
+        nodes.put(8, new TreeNode(8, 7, "Antibiotic first dose verification "));
+        nodes.put(9, new TreeNode(9, 8, "No antibiotics given per surgeon request "));
+        nodes.put(10, new TreeNode(10, 8, "No antibiotics given currently on therapy "));
+        nodes.put(11, new TreeNode(11, 8, "Antibiotics with delayed administration per surgeon request "));
+        nodes.put(12, new TreeNode(12, 2, "Anesthesia induction "));
+        nodes.put(13, new TreeNode(13, 2, "Surgery or procedure start "));
+        nodes.put(14, new TreeNode(14, 2, "Incision start "));
+        nodes.put(15, new TreeNode(15, 2, "Surgery or procedure end "));
+        nodes.put(16, new TreeNode(16, 2, "Transfer out of OR "));
+        nodes.put(17, new TreeNode(17, 2, "Emergence "));
+        nodes.put(18, new TreeNode(18, 1, "Pre-anesthesia "));
+        nodes.put(19, new TreeNode(19, 2, " Anesthesia end "));
+
+        return nodes;
+    }
+
+    private void printTreeData(Map results) {
+        System.out.println("TreeData");
+        Iterator it = results.keySet().iterator();
+        while (it.hasNext()) {
+            int key = ((Integer) it.next()).intValue();
+            Object data = results.get(key);
+            System.out.println("key: " + key + "->" + data);
+        }
+    }
+
+    private void printValues() {
+        System.out.println("Values");
+        Iterator it = values.keySet().iterator();
+        while (it.hasNext()) {
+            int key = ((Integer) it.next()).intValue();
+            Object data = values.get(key);
+            System.out.println("key: " + key + "->" + data);
+        }
+    }
+}
