@@ -1,9 +1,42 @@
 /.cvsignore/1.1/Thu Sep 29 19:01:24 2011/-kk/
-D/common////
-D/controller////
-D/database////
-D/extensions////
-D/main////
-D/modes////
-D/preferences////
-D/view////
+/Resources_ar.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_ca.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_cs.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_da.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_de.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_el.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_en.properties/1.1/Sat Oct 22 01:12:52 2011/-kk/
+/Resources_es.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_et.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_eu.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_fr.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_gl.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_hr.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_hu.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_id.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_it.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_ja.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_ko.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_lt.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_nb.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_nl.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_nn.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_pl.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_pt_BR.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_pt_PT.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_ro.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_ru.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_se.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_sk.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_sl.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_tr.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_uk_UA.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_vi.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_zh_CN.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/Resources_zh_TW.properties/1.1/Thu Sep 29 19:01:24 2011/-kk/
+D/freemind////
+/freemind.properties/1.1/Fri Nov 18 21:47:45 2011/-kk/
+D/images////
+/mindmap_menus.xml/1.1/Thu Sep 29 19:01:24 2011/-kk/
+/patterns.xml/1.1/Thu Sep 29 19:01:24 2011/-kk/
+D/resources////
